@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="wpk.carIO.dao.CarIODao">
+
+	<insert id="insertCarIn" parameterType="wpk.carIO.service.CarIOVO">
+		<![CDATA[
+		INSERT INTO CAR_IN_OUT (
+			CAR_NO,
+			IN_DTM
+		)
+		VALUES (
+			#{carNo},
+			NOW()
+		)
+		]]>
+	</insert>
+
+	<update id="updateCarOut" parameterType="wpk.carIO.service.CarIOVO">
+		<![CDATA[
+		UPDATE
+			CAR_IN_OUT
+		SET
+			OUT_DTM = NOW()
+		WHERE
+			SEQ = #{seq}
+		]]>
+	</update>
+	
+	<resultMap id="carInfoMap" type="wpk.carIO.service.CarIOVO">
+		<id property="seq" column="SEQ"/>
+		<result property="carNo" column="CAR_NO"/>
+		<result property="inDtm" column="IN_DTM"/>
+		<result property="outDtm" column="OUT_DTM"/>
+		<result property="duration" column="DURATION"/>
+		<result property="sttlTm" column="STTL_TM"/>
+		<result property="isPerm" column="IS_PERM"/>
+	</resultMap>
+	<select id="selectCarInfo" parameterType="wpk.carIO.service.CarIOVO" resultType="java.util.HashMap">
+		<![CDATA[
+		SELECT
+			IO.SEQ,
+			IO.CAR_NO,
+			DATE_FORMAT(IO.IN_DTM, '%Y-%m-%d %H:%i:%S') AS IN_DTM,
+			DATE_FORMAT(IO.OUT_DTM, '%Y-%m-%d %H:%i:%S') AS OUT_DTM,
+			CASE
+				WHEN ((TIMESTAMPDIFF(SECOND, IO.IN_DTM, NOW()) % 60) > 0) THEN (TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) + 1)
+				ELSE TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW())
+			END AS DURATION,
+			(CAST(TRUNCATE((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) / 20), 0) AS INT) 
+				+ (CASE WHEN ((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) % 20) > 0) THEN 1 ELSE 0 END)) * 20 AS STTL_TM,
+			CASE
+				WHEN ISNULL(PM.CAR_NO) THEN '' ELSE '정기권'
+			END AS IS_PERM
+		FROM
+			CAR_IN_OUT IO
+			LEFT JOIN PERM PM
+			ON (
+				IO.CAR_NO = PM.CAR_NO
+			)
+		WHERE
+			IO.CAR_NO LIKE CONCAT('%', #{carNo}, '%')
+			AND IO.OUT_DTM IS NULL
+		]]>
+	</select>
+</mapper>

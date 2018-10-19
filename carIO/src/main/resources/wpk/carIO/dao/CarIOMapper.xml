@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="wpk.carIO.dao.CarIODao">
+
+	<insert id="insertCarIn" parameterType="wpk.carIO.service.CarIOVO">
+		<![CDATA[
+		INSERT INTO CAR_IN_OUT (
+			CAR_NO,
+			IN_DTM
+		)
+		VALUES (
+			#{carNo},
+			NOW()
+		)
+		]]>
+	</insert>
+
+	<update id="updateCarOut" parameterType="wpk.carIO.service.CarIOVO">
+		<![CDATA[
+		UPDATE
+			CAR_IN_OUT
+		SET
+			OUT_DTM = NOW()
+		WHERE
+			SEQ = #{seq}
+		]]>
+	</update>
+	
+	<select id="selectCarInfo" parameterType="wpk.carIO.service.CarIOVO" resultType="java.util.HashMap">
+		<![CDATA[
+		SELECT
+			IO.SEQ,
+			IO.CAR_NO,
+			DATE_FORMAT(IO.IN_DTM, '%Y-%m-%d %H:%i:%S') AS IN_DTM,
+			DATE_FORMAT(IO.OUT_DTM, '%Y-%m-%d %H:%i:%S') AS OUT_DTM,
+			TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) AS DURATION,
+			(CAST(TRUNCATE((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) / 30), 0) AS UNSIGNED)
+				+ (CASE WHEN ((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) % 30) > 0) THEN 1 ELSE 0 END)) * 10 AS STTL_TM,
+			(CAST(TRUNCATE((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) / 30), 0) AS UNSIGNED)
+				+ (CASE WHEN ((TIMESTAMPDIFF(MINUTE, IO.IN_DTM, NOW()) % 30) > 0) THEN 1 ELSE 0 END)) * 3000 AS AMOUNT,
+			CASE
+				WHEN ISNULL(PM.CAR_NO) THEN '' ELSE '정기권'
+			END AS IS_PERM
+		FROM
+			CAR_IN_OUT IO
+			LEFT JOIN PERM PM
+			ON (
+				IO.CAR_NO = PM.CAR_NO
+			)
+		WHERE
+			IO.CAR_NO LIKE CONCAT('%', #{carNo}, '%')
+			AND IO.OUT_DTM IS NULL
+		ORDER BY
+			IO.CAR_NO, IO.IN_DTM
+		]]>
+	</select>
+	
+	<select id="selectPerm" parameterType="wpk.carIO.service.CarIOVO" resultType="java.util.HashMap">
+		<![CDATA[
+		SELECT
+			CAR_NO,
+			'정기권' AS IS_PERM
+		FROM
+			PERM
+		WHERE
+			CAR_NO LIKE CONCAT('%', #{carNo}, '%')
+			AND CAR_NO NOT IN (
+				SELECT
+					CAR_NO
+				FROM
+					CAR_IN_OUT IO
+				WHERE
+					IO.CAR_NO LIKE CONCAT('%', #{carNo}, '%')
+					AND IO.OUT_DTM IS NULL
+			)
+		ORDER BY
+			CAR_NO
+		]]>
+	</select>
+	
+	<select id="selectPerm2" parameterType="wpk.carIO.service.CarIOVO" resultType="String">
+		<![CDATA[
+		SELECT
+			CAR_NO
+		FROM
+			PERM
+		WHERE
+			CAR_NO LIKE #{carNo}
+		]]>
+	</select>
+	
+</mapper>
